@@ -657,10 +657,10 @@
             <div class="section-label">庫存設定</div>
             <div class="form-row">
                 <div class="form-group">
-                    <label><span class="label-icon">📦</span>現有庫存<span class="label-hint" id="stockHint">（盒數）</span></label>
+                    <label><span class="label-icon">📦</span>現有庫存<span class="label-hint" id="stockHint">（數量）</span></label>
                     <div class="input-wrap">
                         <input type="number" id="currentStock" placeholder="0" min="0" value="0">
-                        <span class="input-suffix" id="stockSuffix">盒</span>
+                        <span class="input-suffix" id="stockSuffix">粒</span>
                     </div>
                 </div>
                 <div class="form-group">
@@ -674,8 +674,8 @@
 
             <!-- Daily dose override -->
             <div class="form-group" id="doseOverrideGroup">
-                <label><span class="label-icon">💊</span>每日劑量<span class="label-hint" id="doseHint">（可覆寫預設值）</span></label>
-                <input type="number" id="doseOverride" placeholder="留空則使用產品預設劑量" min="0.1" step="0.1">
+                <label><span class="label-icon">💊</span>每日劑量<span class="label-hint" id="doseHint">（請輸入數量）</span></label>
+                <input type="number" id="doseOverride" placeholder="請輸入每日劑量" min="0.1" step="0.1">
                 <div class="quick-doses" id="quickDoses"></div>
             </div>
         </div>
@@ -864,27 +864,26 @@ function selectProduct(id, rerenderGrid) {
 
     if (!isCustom) {
         const p = PRODUCTS.find(x => x.id === id);
-        document.getElementById('doseOverride').placeholder = `留空則使用預設 ${p.dose} ${p.unit}／天`;
-        document.getElementById('doseHint').textContent = `（預設 ${p.dose} ${p.unit}／天）`;
+        document.getElementById('doseOverride').placeholder = `請輸入每日劑量（${p.unit}）`;
+        document.getElementById('doseHint').textContent = `（${p.unit}／天）`;
 
+        // 現有庫存：直接輸入數量（粒/包/公克等）
+        document.getElementById('stockHint').textContent   = `（${p.unit}）`;
+        document.getElementById('stockSuffix').textContent   = p.unit;
+
+        // 新購買數量：維持盒數
         const isBox = ['粒','顆','片','包','膠囊'].includes(p.unit) && p.spec.includes('盒');
         const label = isBox ? '盒數' : '份數';
         const each  = isBox ? '盒' : '份';
-        document.getElementById('stockHint').textContent   = `（${label}，每${each} ${p.quantity} ${p.unit}）`;
         document.getElementById('purchaseHint').textContent = `（${label}，每${each} ${p.quantity} ${p.unit}）`;
-        document.getElementById('stockSuffix').textContent   = each;
         document.getElementById('purchaseSuffix').textContent = each;
 
-        // Quick dose buttons
-        const suggestions = [...new Set([1,2,3,4,6].filter(n => n !== p.dose))].slice(0,4);
-        const qd = document.getElementById('quickDoses');
-        qd.innerHTML = [p.dose, ...suggestions].slice(0,5).map(n =>
-            `<button class="quick-dose-btn" onclick="setDose(${n})">${n} ${p.unit}</button>`
-        ).join('');
+        // 不顯示快速劑量按鈕
+        document.getElementById('quickDoses').innerHTML = '';
     } else {
         document.getElementById('stockHint').textContent   = '（個人單位數量）';
-        document.getElementById('purchaseHint').textContent = '（個人單位數量）';
         document.getElementById('stockSuffix').textContent   = '';
+        document.getElementById('purchaseHint').textContent = '（個人單位數量）';
         document.getElementById('purchaseSuffix').textContent = '';
         document.getElementById('quickDoses').innerHTML = '';
     }
@@ -921,20 +920,18 @@ function calculate() {
         const p     = PRODUCTS.find(x => x.id === selectedId);
         productName = p.name; productSpec = p.spec;
         totalQuantity = p.quantity; unit = p.unit;
-        const override = parseFloat(document.getElementById('doseOverride').value);
-        dailyDose = (override > 0) ? override : p.dose;
+        dailyDose = parseFloat(document.getElementById('doseOverride').value);
+        if (!dailyDose || dailyDose <= 0) { showToast('⚠ 請輸入每日劑量', 'error'); return; }
     }
 
-    // Total qty
+    // Total qty: currentStock 是直接數量，newPurchase 是盒數（需乘以每盒數量）
     let totalQty = 0;
     if (selectedId === 'custom') {
         totalQty = (currentStock > 0 || newPurchase > 0)
             ? (currentStock + newPurchase)
             : totalQuantity;
     } else {
-        totalQty = (currentStock > 0 || newPurchase > 0)
-            ? (currentStock + newPurchase) * totalQuantity
-            : totalQuantity;
+        totalQty = currentStock + (newPurchase * totalQuantity);
     }
 
     const totalDays   = Math.floor(totalQty / dailyDose);
@@ -957,7 +954,7 @@ function calculate() {
     ];
     if (currentStock > 0 || newPurchase > 0) {
         items.push({ label:'庫存狀況', value:
-            `${currentStock>0?`現有 ${currentStock} 盒`:''}${currentStock>0&&newPurchase>0?' + ':''}${newPurchase>0?`新買 ${newPurchase} 盒`:''}`, full:false });
+            `${currentStock>0?`現有 ${currentStock} ${unit}`:''}${currentStock>0&&newPurchase>0?' + ':''}${newPurchase>0?`新買 ${newPurchase} 盒`:''}`, full:false });
     }
     items.push(
         { label:'總數量',    value:`${totalQty} ${unit}`, full:false },
@@ -997,7 +994,7 @@ function calculate() {
         `【保健食品服用計算】`,
         `客戶：${customerName}`,
         `產品：${productName}${productSpec ? '（'+productSpec+'）' : ''}`,
-        (currentStock>0||newPurchase>0) ? `庫存：${currentStock>0?'現有 '+currentStock+' 盒':''}${currentStock>0&&newPurchase>0?' + ':''}${newPurchase>0?'新買 '+newPurchase+' 盒':''}` : '',
+        (currentStock>0||newPurchase>0) ? `庫存：${currentStock>0?'現有 '+currentStock+' '+unit:''}${currentStock>0&&newPurchase>0?' + ':''}${newPurchase>0?'新買 '+newPurchase+' 盒':''}` : '',
         `總量：${totalQty} ${unit}　每日劑量：${dailyDose} ${unit}`,
         `可服用：${totalDays} 天`,
         `開始日期：${startStr}`,
