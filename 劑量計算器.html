@@ -305,15 +305,6 @@
         input:hover, select:hover { border-color: rgba(255,255,255,0.15); }
         select option { background:#1a1035; color:var(--text-primary); }
 
-        /* ── Quick dose buttons ── */
-        .quick-doses { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-        .quick-dose-btn {
-            padding:4px 12px; border-radius:20px; font-size:0.74rem; font-weight:700;
-            background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
-            color:rgba(200,195,235,0.7); cursor:pointer; transition:var(--transition);
-        }
-        .quick-dose-btn:hover { background:rgba(124,77,255,0.2); border-color:rgba(180,150,255,0.3); color:#d0b8ff; }
-
         /* ── Buttons ── */
         .btn-group { display:grid; grid-template-columns:1fr auto auto; gap:10px; margin-top:26px; }
         .btn {
@@ -666,9 +657,10 @@
                 <div class="form-group">
                     <label><span class="label-icon">🛒</span>新購買數量<span class="label-hint" id="purchaseHint">（盒數）</span></label>
                     <div class="input-wrap">
-                        <input type="number" id="newPurchase" placeholder="0" min="0" value="0">
+                        <input type="number" id="newPurchase" placeholder="0" min="0" value="0" oninput="updatePurchaseCalc()">
                         <span class="input-suffix" id="purchaseSuffix">盒</span>
                     </div>
+                    <div id="purchaseCalc" style="font-size:0.76rem;color:rgba(130,200,255,0.7);margin-top:4px;min-height:1.2em;"></div>
                 </div>
             </div>
 
@@ -676,7 +668,6 @@
             <div class="form-group" id="doseOverrideGroup">
                 <label><span class="label-icon">💊</span>每日劑量<span class="label-hint" id="doseHint">（請輸入數量）</span></label>
                 <input type="number" id="doseOverride" placeholder="請輸入每日劑量" min="0.1" step="0.1">
-                <div class="quick-doses" id="quickDoses"></div>
             </div>
         </div>
 
@@ -742,31 +733,21 @@
 <script>
 // ─── Product Catalogue ────────────────────────────────────────────────────────
 const PRODUCTS = [
-    { id:'baoxuetong',    name:'寶雪通活力精華膠囊', spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:4,  image:'https://www.jsppars.com/upload/product/202403050921020.jpg', category:'關節‧眼睛‧心血管' },
-    { id:'baoxuetong2',   name:'寶雪通活力精華膠囊', spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:2,  image:'https://www.jsppars.com/upload/product/202403050921020.jpg', category:'關節‧眼睛‧心血管' },
-    { id:'guanjian',      name:'觀健時刻',            spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:2,  image:'https://www.jsppars.com/upload/product/202302071452550.jpg', category:'關節‧眼睛‧心血管' },
-    { id:'guanjian4',     name:'觀健時刻',            spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:4,  image:'https://www.jsppars.com/upload/product/202302071452550.jpg', category:'關節‧眼睛‧心血管' },
-    { id:'mujin',         name:'苜金明晶亮膠囊PLUS',  spec:'30粒／盒',  quantity:30,   unit:'粒',    dose:1,  image:'https://www.jsppars.com/upload/product/202410170850000.jpg', category:'關節‧眼睛‧心血管' },
-    { id:'algae2500',     name:'三認證引藻片 2500粒', spec:'2500粒',    quantity:2500, unit:'粒',    dose:45, image:'https://www.jsppars.com/upload/product/202109080852500.jpg', category:'引藻™系列' },
-    { id:'algae2500_40',  name:'三認證引藻片 2500粒', spec:'2500粒',    quantity:2500, unit:'粒',    dose:40, image:'https://www.jsppars.com/upload/product/202109080852500.jpg', category:'引藻™系列' },
-    { id:'algae500',      name:'三認證引藻片 500粒',  spec:'500粒',     quantity:500,  unit:'粒',    dose:45, image:'https://www.jsppars.com/upload/product/202109080851280.jpg', category:'引藻™系列' },
-    { id:'algae500_40',   name:'三認證引藻片 500粒',  spec:'500粒',     quantity:500,  unit:'粒',    dose:40, image:'https://www.jsppars.com/upload/product/202109080851280.jpg', category:'引藻™系列' },
-    { id:'algae2600',     name:'引藻活力之泉加強版 2600粒', spec:'2600粒', quantity:2600, unit:'粒',  dose:30, image:'https://www.jsppars.com/upload/product/202109080855220.jpg', category:'引藻™加強版' },
-    { id:'algae2600_40',  name:'引藻活力之泉加強版 2600粒', spec:'2600粒', quantity:2600, unit:'粒',  dose:40, image:'https://www.jsppars.com/upload/product/202109080855220.jpg', category:'引藻™加強版' },
-    { id:'algae800',      name:'引藻活力之泉加強版 800粒',  spec:'800粒',  quantity:800,  unit:'粒',  dose:30, image:'https://www.jsppars.com/upload/product/202109080856190.jpg', category:'引藻™加強版' },
-    { id:'algae800_40',   name:'引藻活力之泉加強版 800粒',  spec:'800粒',  quantity:800,  unit:'粒',  dose:40, image:'https://www.jsppars.com/upload/product/202109080856190.jpg', category:'引藻™加強版' },
-    { id:'algae60',       name:'引藻活力之泉加強版精膠囊',  spec:'60粒',   quantity:60,   unit:'粒',  dose:2,  image:'https://www.jsppars.com/upload/product/202109080858350.jpg', category:'引藻™加強版' },
-    { id:'algae10_12',    name:'引藻活力之泉萃取液',  spec:'10瓶',  quantity:120,  unit:'毫升', dose:12, image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
-    { id:'algae10_24',    name:'引藻活力之泉萃取液',  spec:'10瓶',  quantity:120,  unit:'毫升', dose:24, image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
-    { id:'algae10_36',    name:'引藻活力之泉萃取液',  spec:'10瓶',  quantity:120,  unit:'毫升', dose:36, image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
-    { id:'algaepowder',   name:'引藻活力之泉粉',      spec:'300克', quantity:300,  unit:'公克', dose:9,  image:'https://www.jsppars.com/upload/product/202109080902140.jpg', category:'引藻™加強版' },
-    { id:'catechin',      name:'CRYPTO-PPARs 兒茶素', spec:'30克',  quantity:30,   unit:'公克', dose:0.4, dosingNote:'日服 0.4 公克／一匙', image:'https://www.jsppars.com/upload/product/202109080910030.jpg', category:'引藻™加強版' },
-    { id:'collagen',      name:'活力膠原蛋白',         spec:'30包／盒', quantity:30, unit:'包',   dose:2,  image:'https://www.jsppars.com/upload/product/202109090853480.jpg', category:'膠原蛋白' },
-    { id:'collagen4',     name:'活力膠原蛋白加強',     spec:'30包／盒', quantity:30, unit:'包',   dose:4,  image:'https://www.jsppars.com/upload/product/202109090853480.jpg', category:'膠原蛋白' },
-    { id:'enzymemilk',    name:'酵素牛奶蛋白85B',      spec:'250公克',  quantity:250, unit:'公克', dose:25, dosingNote:'日服1次（25公克）', image:'https://www.jsppars.com/upload/product/202311200833410.jpg', category:'益生菌‧酵素' },
-    { id:'enzymepowder',  name:'酶開研酵酵素奶粉',     spec:'900公克',  quantity:900, unit:'公克', dose:25, dosingNote:'日服1次（25公克）', image:'https://www.jsppars.com/upload/product/202311200831280.jpg', category:'益生菌‧酵素' },
-    { id:'enzymepowder18',name:'酶開研酵酵素奶粉（加強）', spec:'900公克', quantity:900, unit:'公克', dose:50, dosingNote:'日服2次（50公克）', image:'https://www.jsppars.com/upload/product/202311200831280.jpg', category:'益生菌‧酵素' },
-    { id:'custom', name:'自訂產品', spec:'手動輸入規格', quantity:null, unit:null, dose:null, image:'', category:'自訂產品' }
+    { id:'baoxuetong',  name:'寶雪通活力精華膠囊',         spec:'60粒／盒',  quantity:60,   unit:'粒',   image:'https://www.jsppars.com/upload/product/202403050921020.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'guanjian',    name:'觀健時刻',                    spec:'60粒／盒',  quantity:60,   unit:'粒',   image:'https://www.jsppars.com/upload/product/202302071452550.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'mujin',       name:'苜金明晶亮膠囊PLUS',          spec:'30粒／盒',  quantity:30,   unit:'粒',   image:'https://www.jsppars.com/upload/product/202410170850000.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'algae2500',   name:'三認證引藻片 2500粒',         spec:'2500粒',    quantity:2500, unit:'粒',   image:'https://www.jsppars.com/upload/product/202109080852500.jpg', category:'引藻™系列' },
+    { id:'algae500',    name:'三認證引藻片 500粒',          spec:'500粒',     quantity:500,  unit:'粒',   image:'https://www.jsppars.com/upload/product/202109080851280.jpg', category:'引藻™系列' },
+    { id:'algae2600',   name:'引藻活力之泉加強版 2600粒',   spec:'2600粒',    quantity:2600, unit:'粒',   image:'https://www.jsppars.com/upload/product/202109080855220.jpg', category:'引藻™加強版' },
+    { id:'algae800',    name:'引藻活力之泉加強版 800粒',    spec:'800粒',     quantity:800,  unit:'粒',   image:'https://www.jsppars.com/upload/product/202109080856190.jpg', category:'引藻™加強版' },
+    { id:'algae60',     name:'引藻活力之泉加強版精膠囊',    spec:'60粒',      quantity:60,   unit:'粒',   image:'https://www.jsppars.com/upload/product/202109080858350.jpg', category:'引藻™加強版' },
+    { id:'algae10',     name:'引藻活力之泉萃取液',          spec:'10瓶',      quantity:120,  unit:'毫升', image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
+    { id:'algaepowder', name:'引藻活力之泉粉',              spec:'300克',     quantity:300,  unit:'公克', image:'https://www.jsppars.com/upload/product/202109080902140.jpg', category:'引藻™加強版' },
+    { id:'catechin',    name:'CRYPTO-PPARs 兒茶素',         spec:'30克',      quantity:30,   unit:'公克', image:'https://www.jsppars.com/upload/product/202109080910030.jpg', category:'引藻™加強版' },
+    { id:'collagen',    name:'活力膠原蛋白',                 spec:'30包／盒',  quantity:30,   unit:'包',   image:'https://www.jsppars.com/upload/product/202109090853480.jpg', category:'膠原蛋白' },
+    { id:'enzymemilk',  name:'酵素牛奶蛋白85B',             spec:'250公克',   quantity:250,  unit:'公克', image:'https://www.jsppars.com/upload/product/202311200833410.jpg', category:'益生菌‧酵素' },
+    { id:'enzymepowder',name:'酶開研酵酵素奶粉',            spec:'900公克',   quantity:900,  unit:'公克', image:'https://www.jsppars.com/upload/product/202311200831280.jpg', category:'益生菌‧酵素' },
+    { id:'custom',      name:'自訂產品',                     spec:'手動輸入規格', quantity:null, unit:null, image:'', category:'自訂產品' }
 ];
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -843,11 +824,10 @@ function renderProductGrid() {
         const imgHtml = p.image
             ? `<img src="${p.image}" class="product-img" alt="${p.name}" onerror="this.parentElement.innerHTML='<span class=product-img-icon>💊</span>'">`
             : '<span class="product-img-icon">⚙️</span>';
-        const doseLabel = p.dosingNote || (p.dose ? `日服 ${p.dose} ${p.unit}` : '手動輸入');
         return `<button class="product-btn ${p.id === selectedId ? 'active' : ''}" onclick="selectProduct('${p.id}',true)">
             <div class="product-img-wrap">${imgHtml}</div>
             <span class="p-name">${p.name}</span>
-            <span class="p-spec">${p.spec}<br>${doseLabel}</span>
+            <span class="p-spec">${p.spec}</span>
         </button>`;
     }).join('');
 }
@@ -877,21 +857,27 @@ function selectProduct(id, rerenderGrid) {
         const each  = isBox ? '盒' : '份';
         document.getElementById('purchaseHint').textContent = `（${label}，每${each} ${p.quantity} ${p.unit}）`;
         document.getElementById('purchaseSuffix').textContent = each;
-
-        // 不顯示快速劑量按鈕
-        document.getElementById('quickDoses').innerHTML = '';
     } else {
         document.getElementById('stockHint').textContent   = '（個人單位數量）';
         document.getElementById('stockSuffix').textContent   = '';
         document.getElementById('purchaseHint').textContent = '（個人單位數量）';
         document.getElementById('purchaseSuffix').textContent = '';
-        document.getElementById('quickDoses').innerHTML = '';
     }
     updateSteps(1);
+    updatePurchaseCalc();
 }
 
-function setDose(n) {
-    document.getElementById('doseOverride').value = n;
+function updatePurchaseCalc() {
+    const el = document.getElementById('purchaseCalc');
+    if (selectedId === 'custom') { el.textContent = ''; return; }
+    const p = PRODUCTS.find(x => x.id === selectedId);
+    if (!p) { el.textContent = ''; return; }
+    const val = parseFloat(document.getElementById('newPurchase').value || '0');
+    if (val > 0) {
+        el.textContent = `= ${val * p.quantity} ${p.unit}`;
+    } else {
+        el.textContent = '';
+    }
 }
 
 // ─── Calculate ─────────────────────────────────────────────────────────────────
@@ -924,15 +910,19 @@ function calculate() {
         if (!dailyDose || dailyDose <= 0) { showToast('⚠ 請輸入每日劑量', 'error'); return; }
     }
 
+    // 驗證負數
+    if (currentStock < 0 || newPurchase < 0) { showToast('⚠ 數量不能為負數', 'error'); return; }
+
     // Total qty: currentStock 是直接數量，newPurchase 是盒數（需乘以每盒數量）
     let totalQty = 0;
     if (selectedId === 'custom') {
-        totalQty = (currentStock > 0 || newPurchase > 0)
-            ? (currentStock + newPurchase)
-            : totalQuantity;
+        totalQty = currentStock + newPurchase;
     } else {
         totalQty = currentStock + (newPurchase * totalQuantity);
     }
+
+    if (totalQty <= 0) { showToast('⚠ 請輸入現有庫存或新購買數量', 'error'); return; }
+    if (dailyDose > totalQty) { showToast('⚠ 每日劑量超過總數量，數量不足一天的劑量', 'error'); return; }
 
     const totalDays   = Math.floor(totalQty / dailyDose);
     const remainder   = parseFloat((totalQty % dailyDose).toFixed(2));
@@ -1015,10 +1005,12 @@ function calculate() {
 
     updateSteps(4);
 
-    // Save history
+    // Save history (include ISO dates for reliable parsing)
     const record = {
         customerName, productName, productSpec, unit, dailyDose,
         totalDays, totalQty, startStr, endStr, reminderStr,
+        startISO: isoDate(startDate), endISO: isoDate(endDate),
+        reminderISO: reminderStr ? isoDate(reminderDate) : null,
         note, ts: Date.now()
     };
     calcHistory.unshift(record);
@@ -1122,7 +1114,8 @@ function renderHistory() {
     }
     list.innerHTML = `<div class="history-list-wrap">${calcHistory.map(r => {
         const initial = r.customerName.slice(-1);
-        const daysLeft = Math.floor((new Date(r.endStr.replace(/年|月/g,'-').replace('日','')+' 00:00:00') - new Date()) / 86400000);
+        const endDateStr = r.endISO || r.endStr.replace(/年|月/g,'-').replace('日','').trim();
+        const daysLeft = Math.floor((new Date(endDateStr + 'T00:00:00') - new Date()) / 86400000);
         const daysInfo = isNaN(daysLeft) ? r.totalDays+' 天' : (daysLeft >= 0 ? `還剩 ${daysLeft} 天` : `已服完 ${-daysLeft} 天`);
         return `<div class="history-item" onclick="loadHistory(${r.ts})">
             <div class="hi-avatar">${initial}</div>
@@ -1165,6 +1158,7 @@ function clearForm() {
     document.getElementById('startDate').valueAsDate = new Date();
     document.getElementById('currentStock').value = '0';
     document.getElementById('newPurchase').value  = '0';
+    document.getElementById('purchaseCalc').textContent = '';
     document.getElementById('result').classList.remove('show');
     lastResultText = ''; lastResultData = null;
     updateSteps(1);
@@ -1174,6 +1168,10 @@ function clearForm() {
 function formatDate(d) {
     const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
     return `${y} 年 ${m} 月 ${day} 日`;
+}
+function isoDate(d) {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
 }
 
 // Keyboard shortcut: Enter to calculate
