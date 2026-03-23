@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保健食品劑量計算器 · 專業版</title>
+    <style>
+        :root {
+            --bg-primary: #080b18;
+            --bg-secondary: #0d1225;
+            --accent-purple: #7c4dff;
+            --accent-blue: #448aff;
+            --accent-teal: #00bcd4;
+            --accent-gold: #ffc107;
+            --glass-bg: rgba(255,255,255,0.045);
+            --glass-bg-hover: rgba(255,255,255,0.085);
+            --glass-border: rgba(255,255,255,0.09);
+            --glass-border-hover: rgba(180,150,255,0.35);
+            --text-primary: #f0f0fa;
+            --text-secondary: rgba(200,200,230,0.7);
+            --text-muted: rgba(160,160,200,0.45);
+            --radius-sm: 10px;
+            --radius-md: 16px;
+            --radius-lg: 22px;
+            --shadow-glow: 0 0 40px rgba(124,77,255,0.2);
+            --transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            min-height: 100vh;
+            font-family: 'Microsoft JhengHei', 'PingFang TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ── Animated background ── */
+        .bg-canvas {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            overflow: hidden;
+        }
+        .bg-orb {
+            position: absolute; border-radius: 50%;
+            filter: blur(90px); opacity: 0.35;
+            animation: drift 18s ease-in-out infinite alternate;
+        }
+        .bg-orb:nth-child(1) { width:600px;height:600px; background:radial-gradient(circle, #5c2be0 0%,transparent 70%); top:-150px;right:-100px; animation-duration:20s; }
+        .bg-orb:nth-child(2) { width:500px;height:500px; background:radial-gradient(circle, #1a5fb4 0%,transparent 70%); bottom:-100px;left:-80px; animation-duration:16s; animation-delay:-8s; }
+        .bg-orb:nth-child(3) { width:300px;height:300px; background:radial-gradient(circle, #006064 0%,transparent 70%); top:40%;left:50%; animation-duration:24s; animation-delay:-4s; }
+        @keyframes drift { from{transform:translate(0,0) scale(1)} to{transform:translate(30px,20px) scale(1.1)} }
+
+        .grid-overlay {
+            position: fixed; inset:0; z-index:0; pointer-events:none;
+            background-image: linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px);
+            background-size: 50px 50px;
+            mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent);
+        }
+
+        /* ── Layout ── */
+        .container { max-width: 960px; margin:0 auto; padding:36px 20px 80px; position:relative; z-index:1; }
+
+        /* ── Glass ── */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(28px) saturate(150%);
+            -webkit-backdrop-filter: blur(28px) saturate(150%);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            transition: var(--transition);
+        }
+        .glass:hover { border-color: rgba(255,255,255,0.12); }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            padding: 52px 36px 44px;
+            margin-bottom: 28px;
+            position: relative; overflow: hidden;
+        }
+        .header-glow {
+            position:absolute; inset:0; border-radius:var(--radius-lg);
+            background: linear-gradient(135deg, rgba(124,77,255,0.15) 0%, rgba(68,138,255,0.12) 100%);
+        }
+        .header-inner { position:relative; z-index:1; }
+
+        .header-badge {
+            display: inline-flex; align-items:center; gap:6px;
+            padding: 5px 16px;
+            background: linear-gradient(135deg, rgba(124,77,255,0.2), rgba(68,138,255,0.2));
+            border: 1px solid rgba(200,170,255,0.3);
+            border-radius: 30px;
+            font-size: 0.7rem; letter-spacing: 0.18em; font-weight: 700;
+            color: #c8aaff; text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .header-badge::before { content:'◈'; font-size:0.65rem; }
+
+        .header h1 {
+            font-size: clamp(1.9rem, 4vw, 2.7rem);
+            font-weight: 800; letter-spacing: 0.03em;
+            background: linear-gradient(135deg, #ffffff 0%, #c8aaff 55%, #80b0ff 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; margin-bottom: 12px; line-height: 1.2;
+        }
+        .header-desc {
+            font-size: 0.98rem; color: var(--text-secondary); letter-spacing: 0.05em;
+            margin-bottom: 28px;
+        }
+
+        .header-stats {
+            display: flex; justify-content: center; gap: 32px; flex-wrap:wrap;
+        }
+        .stat-item { text-align:center; }
+        .stat-num {
+            font-size: 1.5rem; font-weight: 800;
+            background: linear-gradient(135deg, #c8aaff, #80b0ff);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+        }
+        .stat-label { font-size: 0.72rem; color: var(--text-muted); letter-spacing:0.1em; margin-top:2px; }
+
+        /* ── Step indicator ── */
+        .steps-bar {
+            display: flex; align-items:center; justify-content:center;
+            margin-bottom: 28px; gap:0;
+        }
+        .step {
+            display:flex; align-items:center; gap:8px;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.82rem; font-weight: 600; letter-spacing:0.04em;
+            color: var(--text-muted);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .step.active {
+            background: linear-gradient(135deg, rgba(124,77,255,0.25), rgba(68,138,255,0.25));
+            border: 1px solid rgba(180,150,255,0.4);
+            color: #d0b8ff;
+        }
+        .step.done { color: rgba(100,220,140,0.8); }
+        .step-num {
+            width:22px; height:22px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.72rem; font-weight:800;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            transition: var(--transition);
+        }
+        .step.active .step-num {
+            background: linear-gradient(135deg, #7c4dff, #448aff);
+            border-color: transparent;
+            color:#fff;
+        }
+        .step.done .step-num {
+            background: rgba(80,200,120,0.2);
+            border-color: rgba(80,200,120,0.4);
+            color: rgba(100,220,140,0.9);
+        }
+        .step-connector { width:28px; height:1px; background: rgba(255,255,255,0.08); }
+
+        /* ── Calculator card ── */
+        .calculator { padding: 36px 40px; margin-bottom: 24px; }
+
+        /* ── Section label ── */
+        .section-label {
+            display:flex; align-items:center; gap:8px;
+            font-size: 0.74rem; font-weight: 700;
+            letter-spacing: 0.16em; text-transform: uppercase;
+            color: rgba(180,165,230,0.6);
+            margin-bottom: 14px;
+        }
+        .section-label::before {
+            content:''; display:block; width:3px; height:14px;
+            background: linear-gradient(180deg, #7c4dff, #448aff);
+            border-radius:2px;
+        }
+
+        /* ── Category Tabs ── */
+        .category-tabs-wrapper {
+            overflow-x:auto; margin-bottom:20px;
+            -webkit-overflow-scrolling:touch; scrollbar-width:none;
+            padding-bottom: 4px;
+        }
+        .category-tabs-wrapper::-webkit-scrollbar { display:none; }
+        .category-tabs { display:flex; gap:8px; min-width:max-content; }
+
+        .cat-tab {
+            padding: 8px 18px;
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-muted);
+            font-size: 0.8rem; font-weight: 600; letter-spacing:0.05em;
+            cursor: pointer; transition: var(--transition); white-space:nowrap;
+        }
+        .cat-tab:hover { background:var(--glass-bg-hover); color:rgba(220,215,255,0.85); border-color:rgba(180,150,255,0.2); }
+        .cat-tab.active {
+            background: linear-gradient(135deg, rgba(124,77,255,0.4), rgba(68,138,255,0.4));
+            border-color: rgba(180,150,255,0.5);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(124,77,255,0.2);
+        }
+        .cat-tab .tab-count {
+            display:inline-block; margin-left:5px; padding:1px 7px;
+            border-radius:10px; background:rgba(255,255,255,0.1);
+            font-size:0.68rem; font-weight:800; vertical-align:middle;
+        }
+
+        /* ── Product grid ── */
+        .product-grid-category {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .product-btn {
+            padding: 16px 12px 13px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--radius-md);
+            cursor: pointer; transition: var(--transition);
+            text-align: center; color: rgba(210,210,240,0.75);
+            position: relative; overflow: hidden;
+        }
+        .product-btn::before {
+            content:''; position:absolute; inset:0;
+            background: linear-gradient(135deg, rgba(124,77,255,0), rgba(68,138,255,0));
+            transition: var(--transition);
+        }
+        .product-btn:hover { background:rgba(255,255,255,0.085); border-color:rgba(180,150,255,0.3); transform:translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .product-btn:hover::before { background: linear-gradient(135deg, rgba(124,77,255,0.08), rgba(68,138,255,0.08)); }
+        .product-btn.active {
+            background: linear-gradient(135deg, rgba(124,77,255,0.35), rgba(68,138,255,0.35));
+            border-color: rgba(180,150,255,0.55);
+            box-shadow: 0 0 24px rgba(124,77,255,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .product-img-wrap {
+            width:62px; height:62px; margin:0 auto 10px;
+            border-radius: var(--radius-sm);
+            overflow: hidden; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.07);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .product-btn.active .product-img-wrap { border-color: rgba(180,150,255,0.3); }
+        .product-img { width:100%; height:100%; object-fit:cover; }
+        .product-img-icon { font-size:1.6rem; }
+
+        .p-name { display:block; font-size:0.88rem; font-weight:700; margin-bottom:5px; letter-spacing:0.02em; line-height:1.3; }
+        .p-spec { display:block; font-size:0.69rem; color:rgba(170,190,255,0.55); line-height:1.5; }
+        .product-btn.active .p-spec { color:rgba(210,220,255,0.75); }
+
+        /* ── Custom product ── */
+        .custom-product { display:none; margin-top:6px; }
+        .custom-product.show { display:block; animation:slideDown 0.3s ease; }
+
+        /* ── Divider ── */
+        .divider { border:none; border-top:1px solid rgba(255,255,255,0.07); margin:26px 0; }
+
+        /* ── Form ── */
+        .form-group { margin-bottom:20px; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .form-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+        label {
+            display:flex; align-items:center; gap:6px;
+            margin-bottom:9px; font-weight:600;
+            font-size:0.85rem; letter-spacing:0.07em;
+            color: rgba(200,195,235,0.82);
+        }
+        .label-icon { font-size:0.9rem; opacity:0.7; }
+        .label-hint {
+            font-weight:400; font-size:0.77rem;
+            color: var(--text-muted); margin-left:auto; letter-spacing:0;
+        }
+
+        .input-wrap { position:relative; }
+        .input-suffix {
+            position:absolute; right:14px; top:50%; transform:translateY(-50%);
+            font-size:0.82rem; color:var(--text-muted); pointer-events:none;
+        }
+
+        input, select {
+            width:100%; padding:13px 16px;
+            background: rgba(255,255,255,0.055);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            font-size:0.93rem; color: var(--text-primary);
+            transition: var(--transition); outline:none;
+            font-family: inherit;
+        }
+        input::placeholder { color: rgba(160,160,200,0.35); }
+        input:focus, select:focus {
+            border-color: rgba(160,130,255,0.55);
+            background: rgba(255,255,255,0.085);
+            box-shadow: 0 0 0 3px rgba(124,77,255,0.12);
+        }
+        input:hover, select:hover { border-color: rgba(255,255,255,0.15); }
+        select option { background:#1a1035; color:var(--text-primary); }
+
+        /* ── Quick dose buttons ── */
+        .quick-doses { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+        .quick-dose-btn {
+            padding:4px 12px; border-radius:20px; font-size:0.74rem; font-weight:700;
+            background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+            color:rgba(200,195,235,0.7); cursor:pointer; transition:var(--transition);
+        }
+        .quick-dose-btn:hover { background:rgba(124,77,255,0.2); border-color:rgba(180,150,255,0.3); color:#d0b8ff; }
+
+        /* ── Buttons ── */
+        .btn-group { display:grid; grid-template-columns:1fr auto auto; gap:10px; margin-top:26px; }
+        .btn {
+            padding:15px 24px; border:none; border-radius:var(--radius-sm);
+            font-size:0.95rem; font-weight:700; cursor:pointer;
+            transition:var(--transition); letter-spacing:0.06em;
+            font-family:inherit; display:flex; align-items:center; justify-content:center; gap:7px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #7c4dff 0%, #448aff 100%);
+            color:#fff; box-shadow:0 4px 24px rgba(124,77,255,0.35);
+        }
+        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(124,77,255,0.5); }
+        .btn-primary:active { transform:translateY(0); }
+        .btn-secondary {
+            background:rgba(255,255,255,0.06); color:rgba(200,200,225,0.8);
+            border:1px solid rgba(255,255,255,0.1);
+        }
+        .btn-secondary:hover { background:rgba(255,255,255,0.11); border-color:rgba(255,255,255,0.15); }
+        .btn-export {
+            background: linear-gradient(135deg, rgba(0,188,212,0.2), rgba(0,150,180,0.2));
+            border:1px solid rgba(0,188,212,0.3); color:rgba(80,220,240,0.85);
+        }
+        .btn-export:hover { background:rgba(0,188,212,0.3); }
+
+        /* ── Result ── */
+        .result {
+            display:none; margin-top:26px;
+            border-radius: var(--radius-md);
+            animation: fadeIn 0.4s ease;
+            overflow: hidden;
+        }
+        .result.show { display:block; }
+
+        .result-top {
+            padding:20px 24px;
+            background: linear-gradient(135deg, rgba(124,77,255,0.15), rgba(68,138,255,0.12));
+            border:1px solid rgba(160,130,255,0.2);
+            border-bottom:none;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .result-title-wrap { display:flex; align-items:center; gap:10px; }
+        .result-icon { font-size:1.3rem; }
+        .result-title { font-size:0.78rem; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:rgba(180,160,255,0.75); }
+        .result-subtitle { font-size:0.82rem; color:var(--text-secondary); margin-top:2px; }
+
+        .result-actions { display:flex; gap:8px; }
+        .btn-copy, .btn-share {
+            padding:6px 14px; font-size:0.75rem; font-weight:700;
+            border-radius:8px; cursor:pointer; transition:var(--transition);
+            border:1px solid; letter-spacing:0.04em;
+        }
+        .btn-copy { background:rgba(180,160,255,0.1); border-color:rgba(180,160,255,0.25); color:rgba(200,180,255,0.8); }
+        .btn-copy:hover { background:rgba(180,160,255,0.2); color:#d8c8ff; }
+        .btn-copy.copied { background:rgba(80,200,120,0.15); border-color:rgba(80,200,120,0.3); color:rgba(100,220,140,0.9); }
+        .btn-share { background:rgba(0,188,212,0.1); border-color:rgba(0,188,212,0.25); color:rgba(80,220,240,0.8); }
+        .btn-share:hover { background:rgba(0,188,212,0.2); }
+
+        .result-body {
+            padding:0 24px 20px;
+            background:rgba(124,77,255,0.06);
+            border:1px solid rgba(160,130,255,0.15);
+            border-top:none;
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+        }
+
+        .result-grid {
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:0; padding-top:16px;
+        }
+        .result-item {
+            display:flex; flex-direction:column;
+            padding:12px 0;
+            border-bottom:1px solid rgba(255,255,255,0.05);
+        }
+        .result-item.full { grid-column:1/-1; }
+        .result-item:nth-child(odd):not(.full) { padding-right:24px; border-right:1px solid rgba(255,255,255,0.05); }
+        .result-item:nth-child(even):not(.full) { padding-left:24px; }
+        .result-label { font-size:0.75rem; color:var(--text-muted); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px; }
+        .result-value { font-weight:700; font-size:0.93rem; color:rgba(210,205,255,0.95); }
+        .result-value.highlight {
+            font-size:1.15rem;
+            background:linear-gradient(135deg, #ffc107 0%, #e040fb 60%, #80b0ff 100%);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+        }
+        .result-value.reminder { color:rgba(255,195,105,0.9); }
+        .result-value.success { color:rgba(100,220,140,0.9); }
+
+        .result-cta {
+            margin-top:18px; padding:14px 18px;
+            background:rgba(255,193,7,0.07); border:1px solid rgba(255,193,7,0.2);
+            border-radius:10px; display:flex; align-items:center; gap:10px;
+        }
+        .result-cta-icon { font-size:1.2rem; }
+        .result-cta-text { font-size:0.83rem; color:rgba(255,210,100,0.85); line-height:1.5; }
+
+        /* ── History ── */
+        .history { padding:30px 40px; margin-bottom:24px; }
+        .history-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .history-title-wrap { display:flex; align-items:center; gap:10px; }
+        .history-title { font-size:1rem; font-weight:800; letter-spacing:0.05em; color:rgba(215,215,240,0.92); }
+        .history-count {
+            padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700;
+            background:rgba(124,77,255,0.15); border:1px solid rgba(180,150,255,0.2);
+            color:rgba(200,175,255,0.8);
+        }
+        .history-actions { display:flex; gap:8px; }
+        .btn-export-csv {
+            padding:5px 14px; font-size:0.77rem; font-weight:700;
+            background:rgba(0,188,212,0.1); border:1px solid rgba(0,188,212,0.25);
+            border-radius:8px; color:rgba(80,220,240,0.8); cursor:pointer; transition:var(--transition);
+        }
+        .btn-export-csv:hover { background:rgba(0,188,212,0.2); }
+        .btn-clear-history {
+            padding:5px 14px; font-size:0.77rem; font-weight:700;
+            background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.2);
+            border-radius:8px; color:rgba(255,140,140,0.8); cursor:pointer; transition:var(--transition);
+        }
+        .btn-clear-history:hover { background:rgba(255,80,80,0.18); color:#ff9090; }
+
+        .history-empty {
+            text-align:center; padding:36px 20px;
+            color:var(--text-muted); font-size:0.88rem;
+        }
+        .history-empty-icon { font-size:2.5rem; margin-bottom:10px; opacity:0.4; }
+
+        .history-list-wrap { display:flex; flex-direction:column; gap:8px; }
+
+        .history-item {
+            display:grid; grid-template-columns:auto 1fr auto;
+            align-items:center; gap:14px;
+            padding:14px 18px;
+            background:rgba(255,255,255,0.035);
+            border:1px solid rgba(255,255,255,0.06);
+            border-radius:var(--radius-sm);
+            transition:var(--transition); cursor:pointer;
+        }
+        .history-item:hover { background:rgba(255,255,255,0.065); border-color:rgba(180,150,255,0.2); transform:translateX(3px); }
+        .hi-avatar {
+            width:38px; height:38px; border-radius:50%;
+            background:linear-gradient(135deg, rgba(124,77,255,0.3), rgba(68,138,255,0.3));
+            border:1px solid rgba(180,150,255,0.25);
+            display:flex; align-items:center; justify-content:center;
+            font-size:1rem; font-weight:800; color:rgba(210,195,255,0.9);
+            flex-shrink:0;
+        }
+        .hi-body { min-width:0; }
+        .hi-name { font-weight:800; color:rgba(215,205,255,0.92); font-size:0.92rem; margin-bottom:3px; }
+        .hi-product { font-size:0.79rem; color:rgba(160,170,215,0.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .hi-date-wrap { text-align:right; flex-shrink:0; }
+        .hi-end { font-weight:700; font-size:0.88rem; color:rgba(200,175,255,0.88); }
+        .hi-days { font-size:0.76rem; color:var(--text-muted); margin-top:2px; }
+
+        /* ── Custom Scrollbar ── */
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(180,150,255,0.2); border-radius:3px; }
+        ::-webkit-scrollbar-thumb:hover { background:rgba(180,150,255,0.35); }
+
+        /* ── Toast notification ── */
+        .toast-container { position:fixed; top:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+        .toast {
+            padding:12px 18px; border-radius:12px; font-size:0.85rem; font-weight:600;
+            backdrop-filter:blur(20px);
+            animation:slideInRight 0.3s ease;
+            max-width:300px;
+        }
+        .toast-success { background:rgba(80,200,120,0.15); border:1px solid rgba(80,200,120,0.3); color:rgba(100,230,140,0.9); }
+        .toast-error { background:rgba(255,80,80,0.12); border:1px solid rgba(255,100,100,0.25); color:rgba(255,160,160,0.9); }
+        .toast-info { background:rgba(68,138,255,0.12); border:1px solid rgba(100,160,255,0.25); color:rgba(130,180,255,0.9); }
+        @keyframes slideInRight { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes slideOutRight { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(20px)} }
+
+        /* ── Footer ── */
+        .footer {
+            text-align:center; padding:16px 10px;
+            color:var(--text-muted); font-size:0.75rem; letter-spacing:0.1em;
+        }
+        .footer a { color:rgba(180,150,255,0.5); text-decoration:none; }
+        .footer a:hover { color:rgba(200,175,255,0.8); }
+
+        /* ── Animations ── */
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+        /* ── Loading state ── */
+        .btn-primary.loading { pointer-events:none; opacity:0.75; animation:pulse 1.2s ease infinite; }
+
+        /* ── Responsive ── */
+        @media (max-width:700px) {
+            .calculator, .history { padding:22px 20px; }
+            .header { padding:36px 20px 30px; }
+            .header-stats { gap:20px; }
+            .product-grid-category { grid-template-columns:repeat(2,1fr); }
+            .form-row, .form-row-3 { grid-template-columns:1fr; }
+            .btn-group { grid-template-columns:1fr 1fr; }
+            .btn-group .btn-primary { grid-column:1/-1; }
+            .result-grid { grid-template-columns:1fr; }
+            .result-item:nth-child(odd):not(.full) { padding-right:0; border-right:none; }
+            .result-item:nth-child(even):not(.full) { padding-left:0; }
+            .steps-bar { gap:0; }
+            .step { padding:8px 12px; font-size:0.75rem; }
+            .step-connector { width:16px; }
+            .history-item { grid-template-columns:auto 1fr auto; }
+        }
+        @media (max-width:480px) {
+            .result-top { flex-direction:column; align-items:flex-start; gap:12px; }
+            .header-stats { gap:16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Animated background -->
+<div class="bg-canvas">
+    <div class="bg-orb"></div>
+    <div class="bg-orb"></div>
+    <div class="bg-orb"></div>
+</div>
+<div class="grid-overlay"></div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="container">
+
+    <!-- Header -->
+    <div class="header glass">
+        <div class="header-glow"></div>
+        <div class="header-inner">
+            <div class="header-badge">Professional Health Management</div>
+            <h1>保健食品劑量計算器</h1>
+            <p class="header-desc">精準計算服用週期 · 智慧庫存管理 · 客戶關係維護</p>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <div class="stat-num" id="statProducts">20+</div>
+                    <div class="stat-label">收錄產品</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-num" id="statCalcs">0</div>
+                    <div class="stat-label">計算次數</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-num" id="statClients">0</div>
+                    <div class="stat-label">服務客戶</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step indicator -->
+    <div class="steps-bar glass" style="padding:6px 16px; margin-bottom:24px;">
+        <div class="step active" id="step1" onclick="scrollToSection('sectionProduct')">
+            <div class="step-num">1</div>選擇產品
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" id="step2" onclick="scrollToSection('sectionClient')">
+            <div class="step-num">2</div>客戶資訊
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" id="step3" onclick="scrollToSection('sectionInventory')">
+            <div class="step-num">3</div>庫存設定
+        </div>
+        <div class="step-connector"></div>
+        <div class="step" id="step4" onclick="scrollToSection('sectionResult')">
+            <div class="step-num">4</div>查看結果
+        </div>
+    </div>
+
+    <!-- Calculator -->
+    <div class="calculator glass">
+
+        <!-- STEP 1: Product -->
+        <div id="sectionProduct">
+            <div class="section-label">選擇產品</div>
+            <div class="category-tabs-wrapper">
+                <div class="category-tabs" id="categoryTabs"></div>
+            </div>
+            <div class="product-grid-category" id="productGrid"></div>
+
+            <!-- Custom product fields -->
+            <div class="custom-product" id="customFields">
+                <hr class="divider">
+                <div class="section-label">自訂產品資訊</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><span class="label-icon">📦</span>產品名稱</label>
+                        <input type="text" id="customName" placeholder="例如：維他命C 1000mg">
+                    </div>
+                    <div class="form-group">
+                        <label><span class="label-icon">⚖️</span>計量單位</label>
+                        <select id="customUnit">
+                            <option value="粒">粒</option>
+                            <option value="顆">顆</option>
+                            <option value="片">片</option>
+                            <option value="包">包</option>
+                            <option value="膠囊">膠囊</option>
+                            <option value="公克">公克</option>
+                            <option value="毫升">毫升</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><span class="label-icon">🔢</span>每盒數量</label>
+                        <input type="number" id="customQty" placeholder="例如：100" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label><span class="label-icon">💊</span>每日建議劑量</label>
+                        <input type="number" id="customDose" placeholder="例如：2" min="0.1" step="0.1">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- STEP 2: Client -->
+        <div id="sectionClient">
+            <div class="section-label">客戶資訊</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><span class="label-icon">👤</span>客戶姓名</label>
+                    <input type="text" id="customerName" placeholder="例如：沈麗卿" autocomplete="name">
+                </div>
+                <div class="form-group">
+                    <label><span class="label-icon">📅</span>開始服用日期</label>
+                    <input type="date" id="startDate">
+                </div>
+            </div>
+            <div class="form-group">
+                <label><span class="label-icon">📝</span>備註<span class="label-hint">（選填）</span></label>
+                <input type="text" id="noteInput" placeholder="例如：飯後服用、特殊注意事項…">
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- STEP 3: Inventory -->
+        <div id="sectionInventory">
+            <div class="section-label">庫存設定</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><span class="label-icon">📦</span>現有庫存<span class="label-hint" id="stockHint">（盒數）</span></label>
+                    <div class="input-wrap">
+                        <input type="number" id="currentStock" placeholder="0" min="0" value="0">
+                        <span class="input-suffix" id="stockSuffix">盒</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><span class="label-icon">🛒</span>新購買數量<span class="label-hint" id="purchaseHint">（盒數）</span></label>
+                    <div class="input-wrap">
+                        <input type="number" id="newPurchase" placeholder="0" min="0" value="0">
+                        <span class="input-suffix" id="purchaseSuffix">盒</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily dose override -->
+            <div class="form-group" id="doseOverrideGroup">
+                <label><span class="label-icon">💊</span>每日劑量<span class="label-hint" id="doseHint">（可覆寫預設值）</span></label>
+                <input type="number" id="doseOverride" placeholder="留空則使用產品預設劑量" min="0.1" step="0.1">
+                <div class="quick-doses" id="quickDoses"></div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="btn-group" id="sectionResult">
+            <button class="btn btn-primary" id="calcBtn" onclick="calculate()">
+                <span>✦</span> 計算預計服完日期
+            </button>
+            <button class="btn btn-export" onclick="exportPDF()">
+                <span>⬇</span> 匯出
+            </button>
+            <button class="btn btn-secondary" onclick="clearForm()">
+                <span>↺</span> 清空
+            </button>
+        </div>
+
+        <!-- Result -->
+        <div class="result" id="result">
+            <div class="result-top">
+                <div class="result-title-wrap">
+                    <div class="result-icon">✦</div>
+                    <div>
+                        <div class="result-title">計算結果</div>
+                        <div class="result-subtitle" id="resultSubtitle">—</div>
+                    </div>
+                </div>
+                <div class="result-actions">
+                    <button class="btn-copy" id="copyBtn" onclick="copyResult()">複製</button>
+                    <button class="btn-share" onclick="shareResult()">分享</button>
+                </div>
+            </div>
+            <div class="result-body">
+                <div class="result-grid" id="resultContent"></div>
+                <div class="result-cta" id="resultCta" style="display:none">
+                    <div class="result-cta-icon">⏰</div>
+                    <div class="result-cta-text" id="resultCtaText"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History -->
+    <div class="history glass">
+        <div class="history-header">
+            <div class="history-title-wrap">
+                <div class="history-title">歷史紀錄</div>
+                <div class="history-count" id="historyCount">0</div>
+            </div>
+            <div class="history-actions">
+                <button class="btn-export-csv" onclick="exportCSV()">↓ CSV</button>
+                <button class="btn-clear-history" onclick="clearHistory()">清除全部</button>
+            </div>
+        </div>
+        <div id="historyList"></div>
+    </div>
+
+    <div class="footer">
+        &copy; 2025 <strong>保健食品客戶管理系統</strong> · 企業級解決方案 &nbsp;|&nbsp;
+        <a href="#">使用說明</a> &nbsp;·&nbsp; <a href="#">隱私政策</a>
+    </div>
+</div>
+
+<script>
+// ─── Product Catalogue ────────────────────────────────────────────────────────
+const PRODUCTS = [
+    { id:'baoxuetong',    name:'寶雪通活力精華膠囊', spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:4,  image:'https://www.jsppars.com/upload/product/202403050921020.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'baoxuetong2',   name:'寶雪通活力精華膠囊', spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:2,  image:'https://www.jsppars.com/upload/product/202403050921020.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'guanjian',      name:'觀健時刻',            spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:2,  image:'https://www.jsppars.com/upload/product/202302071452550.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'guanjian4',     name:'觀健時刻',            spec:'60粒／盒',  quantity:60,   unit:'粒',    dose:4,  image:'https://www.jsppars.com/upload/product/202302071452550.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'mujin',         name:'苜金明晶亮膠囊PLUS',  spec:'30粒／盒',  quantity:30,   unit:'粒',    dose:1,  image:'https://www.jsppars.com/upload/product/202410170850000.jpg', category:'關節‧眼睛‧心血管' },
+    { id:'algae2500',     name:'三認證引藻片 2500粒', spec:'2500粒',    quantity:2500, unit:'粒',    dose:45, image:'https://www.jsppars.com/upload/product/202109080852500.jpg', category:'引藻™系列' },
+    { id:'algae2500_40',  name:'三認證引藻片 2500粒', spec:'2500粒',    quantity:2500, unit:'粒',    dose:40, image:'https://www.jsppars.com/upload/product/202109080852500.jpg', category:'引藻™系列' },
+    { id:'algae500',      name:'三認證引藻片 500粒',  spec:'500粒',     quantity:500,  unit:'粒',    dose:45, image:'https://www.jsppars.com/upload/product/202109080851280.jpg', category:'引藻™系列' },
+    { id:'algae500_40',   name:'三認證引藻片 500粒',  spec:'500粒',     quantity:500,  unit:'粒',    dose:40, image:'https://www.jsppars.com/upload/product/202109080851280.jpg', category:'引藻™系列' },
+    { id:'algae2600',     name:'引藻活力之泉加強版 2600粒', spec:'2600粒', quantity:2600, unit:'粒',  dose:30, image:'https://www.jsppars.com/upload/product/202109080855220.jpg', category:'引藻™加強版' },
+    { id:'algae2600_40',  name:'引藻活力之泉加強版 2600粒', spec:'2600粒', quantity:2600, unit:'粒',  dose:40, image:'https://www.jsppars.com/upload/product/202109080855220.jpg', category:'引藻™加強版' },
+    { id:'algae800',      name:'引藻活力之泉加強版 800粒',  spec:'800粒',  quantity:800,  unit:'粒',  dose:30, image:'https://www.jsppars.com/upload/product/202109080856190.jpg', category:'引藻™加強版' },
+    { id:'algae800_40',   name:'引藻活力之泉加強版 800粒',  spec:'800粒',  quantity:800,  unit:'粒',  dose:40, image:'https://www.jsppars.com/upload/product/202109080856190.jpg', category:'引藻™加強版' },
+    { id:'algae60',       name:'引藻活力之泉加強版精膠囊',  spec:'60粒',   quantity:60,   unit:'粒',  dose:2,  image:'https://www.jsppars.com/upload/product/202109080858350.jpg', category:'引藻™加強版' },
+    { id:'algae10_12',    name:'引藻活力之泉萃取液',  spec:'10瓶',  quantity:120,  unit:'毫升', dose:12, image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
+    { id:'algae10_24',    name:'引藻活力之泉萃取液',  spec:'10瓶',  quantity:120,  unit:'毫升', dose:24, image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
+    { id:'algae10_36',    name:'引藻活力之泉萃取液',  spec:'10瓶',  quantity:120,  unit:'毫升', dose:36, image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
+    { id:'algaepowder',   name:'引藻活力之泉粉',      spec:'300克', quantity:300,  unit:'公克', dose:9,  image:'https://www.jsppars.com/upload/product/202109080902140.jpg', category:'引藻™加強版' },
+    { id:'catechin',      name:'CRYPTO-PPARs 兒茶素', spec:'30克',  quantity:30,   unit:'公克', dose:0.4, dosingNote:'日服 0.4 公克／一匙', image:'https://www.jsppars.com/upload/product/202109080910030.jpg', category:'引藻™加強版' },
+    { id:'collagen',      name:'活力膠原蛋白',         spec:'30包／盒', quantity:30, unit:'包',   dose:2,  image:'https://www.jsppars.com/upload/product/202109090853480.jpg', category:'膠原蛋白' },
+    { id:'collagen4',     name:'活力膠原蛋白加強',     spec:'30包／盒', quantity:30, unit:'包',   dose:4,  image:'https://www.jsppars.com/upload/product/202109090853480.jpg', category:'膠原蛋白' },
+    { id:'enzymemilk',    name:'酵素牛奶蛋白85B',      spec:'250公克',  quantity:250, unit:'公克', dose:25, dosingNote:'日服1次（25公克）', image:'https://www.jsppars.com/upload/product/202311200833410.jpg', category:'益生菌‧酵素' },
+    { id:'enzymepowder',  name:'酶開研酵酵素奶粉',     spec:'900公克',  quantity:900, unit:'公克', dose:25, dosingNote:'日服1次（25公克）', image:'https://www.jsppars.com/upload/product/202311200831280.jpg', category:'益生菌‧酵素' },
+    { id:'enzymepowder18',name:'酶開研酵酵素奶粉（加強）', spec:'900公克', quantity:900, unit:'公克', dose:50, dosingNote:'日服2次（50公克）', image:'https://www.jsppars.com/upload/product/202311200831280.jpg', category:'益生菌‧酵素' },
+    { id:'custom', name:'自訂產品', spec:'手動輸入規格', quantity:null, unit:null, dose:null, image:'', category:'自訂產品' }
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const CATEGORIES   = [...new Set(PRODUCTS.map(p => p.category))];
+let selectedId     = PRODUCTS[0].id;
+let activeCategory = PRODUCTS[0].category;
+let calcHistory    = JSON.parse(localStorage.getItem('doseHistory2') || '[]');
+let lastResultText = '';
+let lastResultData = null;
+
+// ─── Stats ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+    document.getElementById('statProducts').textContent = PRODUCTS.length - 1 + '+';
+    document.getElementById('statCalcs').textContent = calcHistory.length;
+    const clients = new Set(calcHistory.map(r => r.customerName)).size;
+    document.getElementById('statClients').textContent = clients;
+    document.getElementById('historyCount').textContent = calcHistory.length;
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type='success', duration=3000) {
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => {
+        el.style.animation = 'slideOutRight 0.3s ease forwards';
+        setTimeout(() => el.remove(), 300);
+    }, duration);
+}
+
+// ─── Steps ─────────────────────────────────────────────────────────────────────
+function updateSteps(activeStep) {
+    for (let i=1; i<=4; i++) {
+        const el = document.getElementById('step'+i);
+        el.classList.remove('active','done');
+        if (i < activeStep) el.classList.add('done');
+        else if (i === activeStep) el.classList.add('active');
+    }
+}
+
+function scrollToSection(id) {
+    document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ─── Category Tabs ─────────────────────────────────────────────────────────────
+function renderTabs() {
+    const tabsEl = document.getElementById('categoryTabs');
+    tabsEl.innerHTML = CATEGORIES.map(cat => {
+        const count = PRODUCTS.filter(p => p.category === cat).length;
+        return `<button class="cat-tab ${cat === activeCategory ? 'active' : ''}" onclick="switchCategory('${cat.replace(/'/g,"\\'")}')">
+            ${cat}<span class="tab-count">${count}</span>
+        </button>`;
+    }).join('');
+}
+
+function switchCategory(cat) {
+    activeCategory = cat;
+    const current = PRODUCTS.find(p => p.id === selectedId);
+    if (current && current.category !== cat) {
+        const first = PRODUCTS.find(p => p.category === cat);
+        if (first) selectProduct(first.id, false);
+    }
+    renderTabs();
+    renderProductGrid();
+}
+
+// ─── Product Grid ──────────────────────────────────────────────────────────────
+function renderProductGrid() {
+    const grid     = document.getElementById('productGrid');
+    const filtered = PRODUCTS.filter(p => p.category === activeCategory);
+    grid.innerHTML = filtered.map(p => {
+        const imgHtml = p.image
+            ? `<img src="${p.image}" class="product-img" alt="${p.name}" onerror="this.parentElement.innerHTML='<span class=product-img-icon>💊</span>'">`
+            : '<span class="product-img-icon">⚙️</span>';
+        const doseLabel = p.dosingNote || (p.dose ? `日服 ${p.dose} ${p.unit}` : '手動輸入');
+        return `<button class="product-btn ${p.id === selectedId ? 'active' : ''}" onclick="selectProduct('${p.id}',true)">
+            <div class="product-img-wrap">${imgHtml}</div>
+            <span class="p-name">${p.name}</span>
+            <span class="p-spec">${p.spec}<br>${doseLabel}</span>
+        </button>`;
+    }).join('');
+}
+
+// ─── Select Product ────────────────────────────────────────────────────────────
+function selectProduct(id, rerenderGrid) {
+    selectedId = id;
+    if (rerenderGrid) renderProductGrid();
+
+    const isCustom = id === 'custom';
+    document.getElementById('customFields').classList.toggle('show', isCustom);
+    document.getElementById('doseOverrideGroup').style.display = isCustom ? 'none' : '';
+    document.getElementById('result').classList.remove('show');
+
+    if (!isCustom) {
+        const p = PRODUCTS.find(x => x.id === id);
+        document.getElementById('doseOverride').placeholder = `留空則使用預設 ${p.dose} ${p.unit}／天`;
+        document.getElementById('doseHint').textContent = `（預設 ${p.dose} ${p.unit}／天）`;
+
+        const isBox = ['粒','顆','片','包','膠囊'].includes(p.unit) && p.spec.includes('盒');
+        const label = isBox ? '盒數' : '份數';
+        const each  = isBox ? '盒' : '份';
+        document.getElementById('stockHint').textContent   = `（${label}，每${each} ${p.quantity} ${p.unit}）`;
+        document.getElementById('purchaseHint').textContent = `（${label}，每${each} ${p.quantity} ${p.unit}）`;
+        document.getElementById('stockSuffix').textContent   = each;
+        document.getElementById('purchaseSuffix').textContent = each;
+
+        // Quick dose buttons
+        const suggestions = [...new Set([1,2,3,4,6].filter(n => n !== p.dose))].slice(0,4);
+        const qd = document.getElementById('quickDoses');
+        qd.innerHTML = [p.dose, ...suggestions].slice(0,5).map(n =>
+            `<button class="quick-dose-btn" onclick="setDose(${n})">${n} ${p.unit}</button>`
+        ).join('');
+    } else {
+        document.getElementById('stockHint').textContent   = '（個人單位數量）';
+        document.getElementById('purchaseHint').textContent = '（個人單位數量）';
+        document.getElementById('stockSuffix').textContent   = '';
+        document.getElementById('purchaseSuffix').textContent = '';
+        document.getElementById('quickDoses').innerHTML = '';
+    }
+    updateSteps(1);
+}
+
+function setDose(n) {
+    document.getElementById('doseOverride').value = n;
+}
+
+// ─── Calculate ─────────────────────────────────────────────────────────────────
+function calculate() {
+    const customerName = document.getElementById('customerName').value.trim();
+    const startDateVal = document.getElementById('startDate').value;
+    const currentStock = parseFloat(document.getElementById('currentStock').value || '0');
+    const newPurchase  = parseFloat(document.getElementById('newPurchase').value  || '0');
+    const note         = document.getElementById('noteInput').value.trim();
+
+    if (!customerName) { showToast('⚠ 請輸入客戶姓名', 'error'); return; }
+    if (!startDateVal)  { showToast('⚠ 請選擇開始服用日期', 'error'); return; }
+
+    let productName, totalQuantity, unit, dailyDose, productSpec;
+
+    if (selectedId === 'custom') {
+        productName   = document.getElementById('customName').value.trim();
+        totalQuantity = parseFloat(document.getElementById('customQty').value);
+        unit          = document.getElementById('customUnit').value;
+        dailyDose     = parseFloat(document.getElementById('customDose').value);
+        if (!productName)                         { showToast('⚠ 請輸入自訂產品名稱', 'error'); return; }
+        if (!totalQuantity || totalQuantity <= 0) { showToast('⚠ 請輸入有效的總數量', 'error'); return; }
+        if (!dailyDose     || dailyDose <= 0)     { showToast('⚠ 請輸入有效的每日劑量', 'error'); return; }
+        productSpec = '';
+    } else {
+        const p     = PRODUCTS.find(x => x.id === selectedId);
+        productName = p.name; productSpec = p.spec;
+        totalQuantity = p.quantity; unit = p.unit;
+        const override = parseFloat(document.getElementById('doseOverride').value);
+        dailyDose = (override > 0) ? override : p.dose;
+    }
+
+    // Total qty
+    let totalQty = 0;
+    if (selectedId === 'custom') {
+        totalQty = (currentStock > 0 || newPurchase > 0)
+            ? (currentStock + newPurchase)
+            : totalQuantity;
+    } else {
+        totalQty = (currentStock > 0 || newPurchase > 0)
+            ? (currentStock + newPurchase) * totalQuantity
+            : totalQuantity;
+    }
+
+    const totalDays   = Math.floor(totalQty / dailyDose);
+    const remainder   = parseFloat((totalQty % dailyDose).toFixed(2));
+    const startDate   = new Date(startDateVal + 'T00:00:00');
+    const endDate     = new Date(startDate);
+    endDate.setDate(startDate.getDate() + totalDays - 1);
+
+    const reminderDate = new Date(endDate);
+    reminderDate.setDate(endDate.getDate() - 14);
+    const reminderStr  = reminderDate > startDate ? formatDate(reminderDate) : null;
+
+    const startStr = formatDate(startDate);
+    const endStr   = formatDate(endDate);
+
+    // Build grid items
+    const items = [
+        { label:'客戶姓名', value: customerName, full:false },
+        { label:'選用產品', value: productName + (productSpec ? `<span style="font-weight:400;font-size:.78rem;opacity:.55;margin-left:6px">${productSpec}</span>` : ''), full:false },
+    ];
+    if (currentStock > 0 || newPurchase > 0) {
+        items.push({ label:'庫存狀況', value:
+            `${currentStock>0?`現有 ${currentStock} 盒`:''}${currentStock>0&&newPurchase>0?' + ':''}${newPurchase>0?`新買 ${newPurchase} 盒`:''}`, full:false });
+    }
+    items.push(
+        { label:'總數量',    value:`${totalQty} ${unit}`, full:false },
+        { label:'每日劑量',  value:`${dailyDose} ${unit} ／天`, full:false },
+        { label:'可服用天數',value:`<span class="result-value success">${totalDays} 天</span>`, full:false, raw:true },
+        { label:'開始日期',  value: startStr, full:false },
+        { label:'預計服完日期', value:`<span class="result-value highlight">${endStr}</span>`, full:false, raw:true },
+    );
+    if (remainder > 0) {
+        items.push({ label:'最後剩餘', value:`${remainder} ${unit}`, full:false });
+    }
+    if (note) {
+        items.push({ label:'備註', value: note, full:true });
+    }
+
+    document.getElementById('resultContent').innerHTML = items.map(item =>
+        `<div class="result-item ${item.full?'full':''}">
+            <div class="result-label">${item.label}</div>
+            ${item.raw ? item.value : `<div class="result-value">${item.value}</div>`}
+        </div>`
+    ).join('');
+
+    document.getElementById('resultSubtitle').textContent = `${customerName} · ${productName}`;
+
+    // CTA reminder
+    const ctaEl = document.getElementById('resultCta');
+    if (reminderStr) {
+        document.getElementById('resultCtaText').innerHTML =
+            `建議在 <strong>${reminderStr}</strong> 前安排補貨提醒（距服完剩 14 天），避免斷貨影響療程。`;
+        ctaEl.style.display = 'flex';
+    } else {
+        ctaEl.style.display = 'none';
+    }
+
+    // Plain text for copy
+    lastResultText = [
+        `【保健食品服用計算】`,
+        `客戶：${customerName}`,
+        `產品：${productName}${productSpec ? '（'+productSpec+'）' : ''}`,
+        (currentStock>0||newPurchase>0) ? `庫存：${currentStock>0?'現有 '+currentStock+' 盒':''}${currentStock>0&&newPurchase>0?' + ':''}${newPurchase>0?'新買 '+newPurchase+' 盒':''}` : '',
+        `總量：${totalQty} ${unit}　每日劑量：${dailyDose} ${unit}`,
+        `可服用：${totalDays} 天`,
+        `開始日期：${startStr}`,
+        `預計服完：${endStr}`,
+        reminderStr ? `建議補貨：${reminderStr}` : '',
+        note ? `備註：${note}` : '',
+    ].filter(Boolean).join('\n');
+
+    lastResultData = { customerName, productName, productSpec, unit, dailyDose, totalDays, totalQty, startStr, endStr, reminderStr, note };
+
+    const copyBtn = document.getElementById('copyBtn');
+    copyBtn.textContent = '複製';
+    copyBtn.classList.remove('copied');
+
+    const resultEl = document.getElementById('result');
+    resultEl.classList.add('show');
+    setTimeout(() => resultEl.scrollIntoView({behavior:'smooth', block:'nearest'}), 100);
+
+    updateSteps(4);
+
+    // Save history
+    const record = {
+        customerName, productName, productSpec, unit, dailyDose,
+        totalDays, totalQty, startStr, endStr, reminderStr,
+        note, ts: Date.now()
+    };
+    calcHistory.unshift(record);
+    if (calcHistory.length > 100) calcHistory.pop();
+    localStorage.setItem('doseHistory2', JSON.stringify(calcHistory));
+    renderHistory();
+    updateStats();
+    showToast(`✓ 計算完成：${customerName}`, 'success');
+}
+
+// ─── Copy ──────────────────────────────────────────────────────────────────────
+function copyResult() {
+    if (!lastResultText) return;
+    navigator.clipboard.writeText(lastResultText).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = '✓ 已複製';
+        btn.classList.add('copied');
+        showToast('已複製到剪貼簿', 'success', 2000);
+        setTimeout(() => { btn.textContent='複製'; btn.classList.remove('copied'); }, 2500);
+    }).catch(() => showToast('複製失敗，請手動複製', 'error'));
+}
+
+// ─── Share ─────────────────────────────────────────────────────────────────────
+function shareResult() {
+    if (!lastResultText) return;
+    if (navigator.share) {
+        navigator.share({ title:'保健食品服用計算', text: lastResultText });
+    } else {
+        copyResult();
+        showToast('已複製，可貼到 Line / WeChat 分享', 'info');
+    }
+}
+
+// ─── Export PDF (print) ────────────────────────────────────────────────────────
+function exportPDF() {
+    if (!lastResultData) { showToast('請先計算結果再匯出', 'error'); return; }
+    const d = lastResultData;
+    const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8">
+    <title>服用計算報告 - ${d.customerName}</title>
+    <style>
+        body{font-family:'Microsoft JhengHei',sans-serif;padding:40px;color:#111;max-width:600px;margin:0 auto;}
+        h1{font-size:1.4rem;margin-bottom:4px;}
+        .sub{color:#666;font-size:.85rem;margin-bottom:24px;}
+        table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+        td{padding:10px 12px;border-bottom:1px solid #eee;font-size:.92rem;}
+        td:first-child{color:#555;width:40%;font-weight:600;}
+        .highlight{font-size:1.1rem;font-weight:800;color:#5c2be0;}
+        .cta{padding:12px 16px;background:#fff8e1;border-left:4px solid #ffc107;font-size:.85rem;margin-top:16px;}
+        .footer{margin-top:32px;font-size:.75rem;color:#999;text-align:center;}
+    </style></head><body>
+    <h1>保健食品服用計算報告</h1>
+    <div class="sub">產生時間：${new Date().toLocaleString('zh-TW')}</div>
+    <table>
+        <tr><td>客戶姓名</td><td>${d.customerName}</td></tr>
+        <tr><td>產品名稱</td><td>${d.productName}${d.productSpec?' ('+d.productSpec+')':''}</td></tr>
+        <tr><td>總數量</td><td>${d.totalQty} ${d.unit}</td></tr>
+        <tr><td>每日劑量</td><td>${d.dailyDose} ${d.unit} ／天</td></tr>
+        <tr><td>可服用天數</td><td>${d.totalDays} 天</td></tr>
+        <tr><td>開始日期</td><td>${d.startStr}</td></tr>
+        <tr><td>預計服完日期</td><td class="highlight">${d.endStr}</td></tr>
+        ${d.reminderStr ? `<tr><td>建議補貨日期</td><td>${d.reminderStr}</td></tr>` : ''}
+        ${d.note ? `<tr><td>備註</td><td>${d.note}</td></tr>` : ''}
+    </table>
+    ${d.reminderStr ? `<div class="cta">⏰ 建議於 <strong>${d.reminderStr}</strong> 前安排補貨（提前 14 天）</div>` : ''}
+    <div class="footer">保健食品客戶管理系統 · 企業版</div>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+}
+
+// ─── Export CSV ────────────────────────────────────────────────────────────────
+function exportCSV() {
+    if (calcHistory.length === 0) { showToast('尚無紀錄可匯出', 'error'); return; }
+    const header = '客戶姓名,產品名稱,規格,每日劑量,單位,可服用天數,開始日期,預計服完日期,補貨提醒,備註,記錄時間';
+    const rows = calcHistory.map(r => [
+        r.customerName, r.productName, r.productSpec||'',
+        r.dailyDose, r.unit, r.totalDays,
+        r.startStr, r.endStr, r.reminderStr||'', r.note||'',
+        new Date(r.ts).toLocaleString('zh-TW')
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+    const csv = '\uFEFF' + [header, ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=`劑量計算紀錄_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('CSV 已下載', 'success');
+}
+
+// ─── History ───────────────────────────────────────────────────────────────────
+function renderHistory() {
+    const list = document.getElementById('historyList');
+    if (calcHistory.length === 0) {
+        list.innerHTML = `<div class="history-empty">
+            <div class="history-empty-icon">📋</div>
+            <div>尚無計算記錄</div>
+        </div>`;
+        return;
+    }
+    list.innerHTML = `<div class="history-list-wrap">${calcHistory.map(r => {
+        const initial = r.customerName.slice(-1);
+        const daysLeft = Math.floor((new Date(r.endStr.replace(/年|月/g,'-').replace('日','')+' 00:00:00') - new Date()) / 86400000);
+        const daysInfo = isNaN(daysLeft) ? r.totalDays+' 天' : (daysLeft >= 0 ? `還剩 ${daysLeft} 天` : `已服完 ${-daysLeft} 天`);
+        return `<div class="history-item" onclick="loadHistory(${r.ts})">
+            <div class="hi-avatar">${initial}</div>
+            <div class="hi-body">
+                <div class="hi-name">${r.customerName}</div>
+                <div class="hi-product">${r.productName}${r.productSpec?'　'+r.productSpec:''} · 每日 ${r.dailyDose} ${r.unit}</div>
+            </div>
+            <div class="hi-date-wrap">
+                <div class="hi-end">${r.endStr}</div>
+                <div class="hi-days">${daysInfo}</div>
+            </div>
+        </div>`;
+    }).join('')}</div>`;
+}
+
+function loadHistory(ts) {
+    const r = calcHistory.find(x => x.ts === ts);
+    if (!r) return;
+    document.getElementById('customerName').value = r.customerName;
+    if (r.note) document.getElementById('noteInput').value = r.note;
+    showToast(`已載入：${r.customerName}`, 'info');
+    document.getElementById('sectionClient').scrollIntoView({behavior:'smooth'});
+}
+
+function clearHistory() {
+    if (!confirm('確定要清除所有歷史記錄嗎？此動作無法復原。')) return;
+    calcHistory = [];
+    localStorage.removeItem('doseHistory2');
+    renderHistory();
+    updateStats();
+    showToast('歷史記錄已清除', 'info');
+}
+
+// ─── Clear Form ────────────────────────────────────────────────────────────────
+function clearForm() {
+    const first = PRODUCTS[0];
+    selectedId = first.id; activeCategory = first.category;
+    renderTabs(); renderProductGrid(); selectProduct(first.id, false);
+    ['customerName','doseOverride','customName','customQty','customDose','noteInput'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('startDate').valueAsDate = new Date();
+    document.getElementById('currentStock').value = '0';
+    document.getElementById('newPurchase').value  = '0';
+    document.getElementById('result').classList.remove('show');
+    lastResultText = ''; lastResultData = null;
+    updateSteps(1);
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function formatDate(d) {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y} 年 ${m} 月 ${day} 日`;
+}
+
+// Keyboard shortcut: Enter to calculate
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !['BUTTON','SELECT'].includes(e.target.tagName)) calculate();
+});
+
+// ─── Intersection Observer for step update ────────────────────────────────────
+const sectionStepMap = { sectionProduct:1, sectionClient:2, sectionInventory:3, sectionResult:4 };
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            const step = sectionStepMap[entry.target.id];
+            if (step) updateSteps(step);
+        }
+    });
+}, { threshold: 0.4 });
+Object.keys(sectionStepMap).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+});
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+renderTabs();
+renderProductGrid();
+selectProduct(PRODUCTS[0].id, false);
+document.getElementById('startDate').valueAsDate = new Date();
+renderHistory();
+updateStats();
+</script>
+</body>
+</html>
