@@ -743,7 +743,7 @@ const PRODUCTS = [
     { id:'algae60',     name:'引藻活力之泉加強版精膠囊',    spec:'60粒',      quantity:60,   unit:'粒',   image:'https://www.jsppars.com/upload/product/202109080858350.jpg', category:'引藻™加強版' },
     { id:'algae10',     name:'引藻活力之泉萃取液',          spec:'10瓶',      quantity:120,  unit:'毫升', image:'https://www.jsppars.com/upload/product/202109080903190.jpg', category:'引藻™加強版' },
     { id:'algaepowder', name:'引藻活力之泉粉',              spec:'300克',     quantity:300,  unit:'公克', image:'https://www.jsppars.com/upload/product/202109080902140.jpg', category:'引藻™加強版' },
-    { id:'catechin',    name:'CRYPTO-PPARs 兒茶素',         spec:'30克',      quantity:30,   unit:'公克', image:'https://www.jsppars.com/upload/product/202109080910030.jpg', category:'引藻™加強版' },
+    { id:'catechin',    name:'CRYPTO-PPARs 兒茶素',         spec:'30克',      quantity:30,   unit:'公克', defaultDose:1, doseUnit:'匙', doseRatio:0.5, image:'https://www.jsppars.com/upload/product/202109080910030.jpg', category:'引藻™加強版' },
     { id:'collagen',    name:'活力膠原蛋白',                 spec:'30包／盒',  quantity:30,   unit:'包',   image:'https://www.jsppars.com/upload/product/202109090853480.jpg', category:'膠原蛋白' },
     { id:'enzymemilk',  name:'酵素牛奶蛋白85B',             spec:'250公克',   quantity:250,  unit:'公克', image:'https://www.jsppars.com/upload/product/202311200833410.jpg', category:'益生菌‧酵素' },
     { id:'enzymepowder',name:'酶開研酵酵素奶粉',            spec:'900公克',   quantity:900,  unit:'公克', image:'https://www.jsppars.com/upload/product/202311200831280.jpg', category:'益生菌‧酵素' },
@@ -844,8 +844,22 @@ function selectProduct(id, rerenderGrid) {
 
     if (!isCustom) {
         const p = PRODUCTS.find(x => x.id === id);
-        document.getElementById('doseOverride').placeholder = `請輸入每日劑量（${p.unit}）`;
-        document.getElementById('doseHint').textContent = `（${p.unit}／天）`;
+        // 劑量顯示：優先使用 doseRatio+unit+doseUnit 格式（如有）
+        let displayUnit = p.unit;
+        if (p.doseUnit && p.doseRatio) {
+            displayUnit = `${p.doseRatio}${p.unit}／${p.doseUnit}`;
+        } else if (p.doseUnit) {
+            displayUnit = p.doseUnit;
+        }
+        document.getElementById('doseOverride').placeholder = `請輸入每日劑量（${displayUnit}）`;
+        document.getElementById('doseHint').textContent = `（${displayUnit}／天）`;
+
+        // 自動填入預設劑量（如果有）
+        if (p.defaultDose) {
+            document.getElementById('doseOverride').value = p.defaultDose;
+        } else {
+            document.getElementById('doseOverride').value = '';
+        }
 
         // 現有庫存：直接輸入數量（粒/包/公克等）
         document.getElementById('stockHint').textContent   = `（${p.unit}）`;
@@ -906,8 +920,10 @@ function calculate() {
         const p     = PRODUCTS.find(x => x.id === selectedId);
         productName = p.name; productSpec = p.spec;
         totalQuantity = p.quantity; unit = p.unit;
-        dailyDose = parseFloat(document.getElementById('doseOverride').value);
-        if (!dailyDose || dailyDose <= 0) { showToast('⚠ 請輸入每日劑量', 'error'); return; }
+        const inputDose = parseFloat(document.getElementById('doseOverride').value);
+        // 如果有 doseRatio，將輸入單位轉換為實際單位（匙 → 公克）
+        dailyDose = p.doseRatio ? inputDose * p.doseRatio : inputDose;
+        if (!inputDose || inputDose <= 0) { showToast('⚠ 請輸入每日劑量', 'error'); return; }
     }
 
     // 驗證負數
